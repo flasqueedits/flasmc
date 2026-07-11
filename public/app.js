@@ -334,10 +334,11 @@ document.getElementById('btn-modal-create').addEventListener('click', async () =
   const anticheat = document.getElementById('new-server-anticheat').checked;
   const geyser = document.getElementById('new-server-geyser').checked;
   const xray = document.getElementById('new-server-xray').checked;
+  const minigame = document.getElementById('new-server-minigame').checked;
   const statusEl = document.getElementById('create-status');
   statusEl.className = ''; statusEl.textContent = 'Creating server...'; statusEl.classList.remove('hidden');
   showLoading();
-  const result = await api('POST', '/servers', { id, type, version, anticheat, geyser, xray });
+  const result = await api('POST', '/servers', { id, type, version, anticheat, geyser, xray, minigame });
   hideLoading();
   if (result.error) { statusEl.className = 'error'; statusEl.textContent = result.error; return; }
   toast('Server created!', 'success');
@@ -381,6 +382,7 @@ function openServer(id) {
   loadAntiCheatStatus();
   loadGeyserStatus();
   loadXrayStatus();
+  loadMinigameStatus();
   loadCrashRestartSettings();
   loadMotd();
   loadSettings();
@@ -1626,6 +1628,69 @@ document.getElementById('xray-modal-remove-orebfuscator').addEventListener('clic
 
 document.querySelector('#xray-modal .modal-close-btn').addEventListener('click', () => {
   document.getElementById('xray-modal').classList.add('hidden');
+});
+
+// ─── Minigame Plugins ─────────────────────────
+
+async function loadMinigameStatus() {
+  if (!currentServerId) return;
+  const data = await api('GET', '/servers/' + currentServerId + '/minigame');
+  if (data.error) return;
+  const el = document.getElementById('info-minigame');
+  const count = data.plugins?.filter(p => p.installed).length || 0;
+  if (count > 0) el.innerHTML = `<span class="badge-on">${count} plugins</span>`;
+  else if (data.minigame) el.innerHTML = '<span class="badge-warn">Pending</span>';
+  else el.innerHTML = '<span class="badge-off">Off</span>';
+}
+
+document.getElementById('bottombar-minigame').addEventListener('click', async () => {
+  const modal = document.getElementById('minigame-modal');
+  modal.classList.remove('hidden');
+  const data = await api('GET', '/servers/' + currentServerId + '/minigame');
+  const statusEl = document.getElementById('minigame-modal-status');
+  const listEl = document.getElementById('minigame-modal-list');
+  if (data.error) { statusEl.textContent = data.error; return; }
+  const count = data.plugins?.filter(p => p.installed).length || 0;
+  statusEl.innerHTML = `<span style="font-size:13px;color:var(--text-secondary);">Minigame mode: ${data.minigame ? '<span class="badge-on">Enabled</span>' : '<span class="badge-off">Disabled</span>'} — ${count}/${data.plugins?.length || 0} plugins installed</span>`;
+  listEl.innerHTML = (data.plugins || []).map(p => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin:4px 0;background:var(--bg-card);border-radius:8px;border:1px solid var(--border);">
+      <div>
+        <strong style="font-size:13px;">${p.name}</strong>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">${p.file}</span>
+      </div>
+      <div>
+        ${p.installed
+          ? '<span class="badge-on">Installed</span> <button class="btn-sm btn-danger minigame-uninstall" data-plugin="${p.name}" style="margin-left:8px;"><i class="fas fa-trash"></i></button>'
+          : '<button class="btn-sm btn-primary minigame-install" data-plugin="${p.name}"><i class="fas fa-download"></i> Install</button>'}
+      </div>
+    </div>
+  `).join('');
+});
+
+document.addEventListener('click', async (e) => {
+  const installBtn = e.target.closest('.minigame-install');
+  if (installBtn) {
+    const plugin = installBtn.dataset.plugin;
+    showLoading();
+    const result = await api('POST', '/servers/' + currentServerId + '/minigame/install', { plugin });
+    hideLoading();
+    toast(result.message, result.success ? 'success' : 'info');
+    document.getElementById('bottombar-minigame').click();
+    loadMinigameStatus();
+  }
+  const uninstallBtn = e.target.closest('.minigame-uninstall');
+  if (uninstallBtn) {
+    if (!confirm('Remove ' + uninstallBtn.dataset.plugin + '?')) return;
+    const plugin = uninstallBtn.dataset.plugin;
+    await api('POST', '/servers/' + currentServerId + '/minigame/uninstall', { plugin });
+    toast('Removed ' + plugin, 'info');
+    document.getElementById('bottombar-minigame').click();
+    loadMinigameStatus();
+  }
+});
+
+document.querySelector('#minigame-modal .modal-close-btn').addEventListener('click', () => {
+  document.getElementById('minigame-modal').classList.add('hidden');
 });
 
 // ─── Crash Auto-Restart ──────────────────────────

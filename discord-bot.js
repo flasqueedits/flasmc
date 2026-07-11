@@ -92,6 +92,8 @@ class FlasmcDiscordBot {
       new SlashCommandBuilder().setName('prefix').setDescription('Change bot prefix').addStringOption(o => o.setName('newprefix').setDescription('New prefix character(s)').setRequired(true)),
       new SlashCommandBuilder().setName('role').setDescription('Send role selection panel'),
       new SlashCommandBuilder().setName('language').setDescription('Send language selection menu'),
+      new SlashCommandBuilder().setName('event').setDescription('Trigger an admin abuse event').addStringOption(o => o.setName('server').setDescription('Server name').setRequired(true)).addStringOption(o => o.setName('type').setDescription('Event type').setRequired(false)),
+      new SlashCommandBuilder().setName('events').setDescription('List available events and next event time'),
       new SlashCommandBuilder().setName('help').setDescription('Show all commands').addStringOption(o => o.setName('category').setDescription('Command category').setRequired(false).addChoices({ name: 'Server', value: 'server' }, { name: 'Player', value: 'player' }, { name: 'Management', value: 'management' }, { name: 'Bot', value: 'bot' })),
     ];
   }
@@ -201,6 +203,8 @@ class FlasmcDiscordBot {
       deploy: () => this.cmdDeploy(msg),
       role: () => this.cmdRole(msg),
       language: () => this.cmdLanguage(msg),
+      event: () => this.cmdEvent(msg, sid, args[2]),
+      events: () => this.cmdEvents(msg, sid),
     };
     if (handlers[cmd]) await handlers[cmd]();
     else if (cmd) await msg.reply(`Unknown command \`${cmd}\`. Use \`!help\``);
@@ -232,6 +236,19 @@ class FlasmcDiscordBot {
         const lang = interaction.values[0];
         const langNames = { lang_tr: 'Türkçe', lang_en: 'English', lang_de: 'Deutsch', lang_fr: 'Français', lang_es: 'Español' };
         await interaction.reply({ content: `🌍 Language set to **${langNames[lang] || lang}**`, ephemeral: true });
+      }
+      if (interaction.customId === 'event_select') {
+        const value = interaction.values[0];
+        const eventId = value.replace('event_', '');
+        const serverId = interaction.message?.embeds?.[0]?.description?.match(/\*\*(.+?)\*\*/)?.[1];
+        if (serverId) {
+          const FlasmcAIBot = require('./ai-bot');
+          const tempBot = new FlasmcAIBot(null, this.runningServers, this.serversDir);
+          tempBot.triggerEvent(serverId, eventId);
+          await interaction.reply({ content: `✅ Triggered **${eventId}** on \`${serverId}\``, ephemeral: true });
+        } else {
+          await interaction.reply({ content: '❌ Server not found in embed', ephemeral: true });
+        }
       }
       return;
     }
@@ -285,6 +302,8 @@ class FlasmcDiscordBot {
       help: () => this.cmdHelp(interaction, get('category')),
       role: () => this.cmdRole(interaction),
       language: () => this.cmdLanguage(interaction),
+      event: () => this.cmdEvent(interaction, sid, get('type')),
+      events: () => this.cmdEvents(interaction, sid),
     };
     if (handlers[cmd]) await handlers[cmd]();
     else await interaction.reply({ content: '❌ Unknown command', ephemeral: true });
@@ -843,7 +862,7 @@ class FlasmcDiscordBot {
         { name: 'Servers', value: String(this.getAllServers().length), inline: true },
         { name: 'Prefix', value: `\`${this.prefix}\``, inline: true },
         { name: 'Commands', value: '50+ prefix + slash commands', inline: true },
-        { name: 'Features', value: 'Server management\nPlayer control\nBackups\nPlugins\nConsole\nAuto-setup\nRole panel\nMulti-language', inline: false },
+        { name: 'Features', value: 'Server management\nPlayer control\nBackups\nPlugins\nConsole\nAuto-setup\nRole panel\nMulti-language\nAdmin abuse events\nAI Bot', inline: false },
       ]
     };
     await this.reply(ctx, { embeds: [embed] });
@@ -1072,6 +1091,52 @@ class FlasmcDiscordBot {
     await this.reply(ctx, { embeds: [embed], components: [row] });
   }
 
+  async cmdEvent(ctx, serverId, eventType) {
+    if (!serverId) return this.reply(ctx, 'Usage: `!event <server> [type]`\nTypes: ' + this._eventList().map(e => `\`${e.id}\``).join(', '));
+    const serverDir = path.join(this.serversDir, serverId);
+    if (!fs.existsSync(serverDir)) return this.reply(ctx, '❌ Server not found');
+    const FlasmcAIBot = require('./ai-bot');
+    const tempBot = new FlasmcAIBot(null, this.runningServers, this.serversDir);
+    const result = tempBot.triggerEvent(serverId, eventType);
+    if (result?.error) return this.reply(ctx, '❌ ' + result.error);
+    this.reply(ctx, `✅ Event triggered: **${eventType || 'random'}** on \`${serverId}\``);
+  }
+
+  async cmdEvents(ctx, serverId) {
+    if (!serverId) return this.reply(ctx, '❌ Usage: `!events <server>`');
+    const events = this._eventList();
+    const embed = {
+      color: 0xff6b35,
+      title: '🎮 Admin Abuse Events',
+      description: serverId ? `Available events for **${serverId}**:\n\n` + events.map(e => `${e.emoji} **${e.id}** — ${e.name}`).join('\n') + '\n\nUse `!event ' + serverId + ' <type>` to trigger' : 'Use `!events <server>`',
+      footer: { text: 'Events run automatically every hour!' }
+    };
+    // Build select menu for easy triggering
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId('event_select')
+      .setPlaceholder('🎮 Trigger an event...')
+      .addOptions(events.map(e => ({ label: e.name, value: 'event_' + e.id, emoji: e.emoji, description: 'Trigger ' + e.id })));
+    const row = new ActionRowBuilder().addComponents(menu);
+    await this.reply(ctx, { embeds: [embed], components: [row] });
+  }
+
+  _eventList() {
+    return [
+      { id: 'item_rain', name: 'Eşya Yağmuru', emoji: '☔' },
+      { id: 'mob_rain', name: 'Mob Yağmuru', emoji: '👾' },
+      { id: 'drop_party', name: 'Drop Partisi', emoji: '🎁' },
+      { id: 'super_powers', name: 'Süper Güçler', emoji: '⚡' },
+      { id: 'creeper_apoc', name: 'Creeper Kıyameti', emoji: '💥' },
+      { id: 'anvil_rain', name: 'Örs Yağmuru', emoji: '🔨' },
+      { id: 'tnt_rain', name: 'TNT Yağmuru', emoji: '💣' },
+      { id: 'potion_madness', name: 'İksir Çılgınlığı', emoji: '🧪' },
+      { id: 'random_tp', name: 'Rastgele Işınlanma', emoji: '🌀' },
+      { id: 'xp_rain', name: 'XP Yağmuru', emoji: '✨' },
+      { id: 'lightning', name: 'Yıldırım Festivali', emoji: '⚡' },
+      { id: 'feed_party', name: 'Doyurma Partisi', emoji: '🍔' },
+    ];
+  }
+
   async cmdHelp(ctx, category) {
     const full = `**📋 Flasmc Bot — All Commands**\n\n` +
       `**Server:**\n` +
@@ -1082,14 +1147,14 @@ class FlasmcDiscordBot {
       `\`/console\` \`/gamemode\` \`/difficulty\` \`/time\` \`/weather\` \`/tps\` \`/memory\` \`/backup\` \`/backup-delete\`\n` +
       `\`/plugins\` \`/plugin\` \`/worlds\` \`/schedules\`\n\n` +
       `**Bot:**\n` +
-      `\`/ping\` \`/uptime\` \`/about\` \`/invite\` \`/setup\` \`/lock\` \`/unlock\` \`/prefix\` \`/role\` \`/language\` \`/help\`\n\n` +
+      `\`/ping\` \`/uptime\` \`/about\` \`/invite\` \`/setup\` \`/lock\` \`/unlock\` \`/prefix\` \`/role\` \`/language\` \`/event\` \`/events\` \`/help\`\n\n` +
       `Prefix (\`${this.prefix}\`) commands also work. Use \`${this.prefix}prefix <new>\` to change.`;
 
     const byCategory = {
       server: '**📋 Server Commands**\n`status` — Check server status\n`start` — Start server\n`stop` — Stop server\n`restart` — Restart server\n`create` — Create new server\n`delete` — Delete server\n`servers` — List all servers\n`info` — Detailed server info\n`motd` — Get/set MOTD\n`properties` — List properties\n`prop-set` — Set property\n`say` — Broadcast message',
       player: '**📋 Player Commands**\n`list` — List online players\n`kick` — Kick a player\n`ban` — Ban a player\n`unban` — Unban a player\n`whitelist` — Manage whitelist\n`op` — Add operator\n`deop` — Remove operator',
       management: '**📋 Management Commands**\n`console` — Run server command\n`gamemode` — Set gamemode\n`difficulty` — Set difficulty\n`time` — Set time\n`weather` — Set weather\n`tps` — Show TPS\n`memory` — Memory usage\n`backup` — Create/list backups\n`backup-delete` — Delete backup\n`plugins` — List plugins\n`plugin` — Enable/disable plugin\n`worlds` — List worlds\n`schedules` — List schedules\n`console` — Execute command',
-      bot: '**📋 Bot Commands**\n`ping` — Check latency\n`uptime` — Bot uptime\n`about` — Bot info\n`invite` — Invite link\n`setup` — Auto-create channels\n`lock` — Lock a channel\n`unlock` — Unlock a channel\n`prefix` — Change bot prefix\n`role` — Role selection panel\n`language` — Language selection menu\n`help` — This message'
+      bot: '**📋 Bot Commands**\n`ping` — Check latency\n`uptime` — Bot uptime\n`about` — Bot info\n`invite` — Invite link\n`setup` — Auto-create channels\n`lock` — Lock a channel\n`unlock` — Unlock a channel\n`prefix` — Change bot prefix\n`role` — Role selection panel\n`language` — Language selection menu\n`event` — Trigger admin abuse event\n`events` — List available events\n`help` — This message'
     };
     await this.reply(ctx, byCategory[category] || full);
   }

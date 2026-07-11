@@ -329,7 +329,7 @@
               <code>status</code> <code>start</code> <code>stop</code> <code>restart</code> <code>create</code> <code>delete</code> <code>servers</code> <code>info</code><br>
               <code>console</code> <code>say</code> <code>kick</code> <code>ban</code> <code>unban</code> <code>whitelist</code> <code>op</code> <code>deop</code><br>
               <code>backup</code> <code>plugins</code> <code>worlds</code> <code>properties</code> <code>tps</code> <code>memory</code><br>
-              <code>lock</code> <code>unlock</code> <code>setup</code> <code>prefix</code> <code>role</code> <code>language</code> <code>ping</code> <code>uptime</code> <code>invite</code> <code>help</code>
+              <code>lock</code> <code>unlock</code> <code>setup</code> <code>prefix</code> <code>role</code> <code>language</code> <code>event</code> <code>events</code> <code>ping</code> <code>uptime</code> <code>invite</code> <code>help</code>
             </div>
           </div>
         </div>
@@ -466,6 +466,10 @@
               <div class="info-card-label">X-Ray Protection</div>
               <div class="info-card-value" id="info-xray"><span class="badge-off">Off</span></div>
             </div>
+            <div class="info-card">
+              <div class="info-card-label">Minigame</div>
+              <div class="info-card-value" id="info-minigame"><span class="badge-off">Off</span></div>
+            </div>
             <div class="info-card span-2">
               <div class="info-card-label">Server ID</div>
               <div class="info-card-value" id="info-serverid" style="font-family:var(--mono);font-size:11px;">-</div>
@@ -497,6 +501,7 @@
         <button id="bottombar-anticheat" class="btn-ghost"><i class="fas fa-shield-halved"></i> Anti-Cheat</button>
         <button id="bottombar-geyser" class="btn-ghost"><i class="fas fa-mobile-screen"></i> Bedrock</button>
         <button id="bottombar-xray" class="btn-ghost"><i class="fas fa-eye-slash"></i> X-Ray</button>
+        <button id="bottombar-minigame" class="btn-ghost"><i class="fas fa-gamepad"></i> Minigame</button>
         <span style="flex:1;"></span>
         <span id="bottombar-stats" style="font-size:11px;color:var(--text-muted);"></span>
       </div>
@@ -540,6 +545,10 @@
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
             <input type="checkbox" id="new-server-xray" checked>
             <i class="fas fa-eye-slash" style="color:var(--yellow)"></i> X-Ray Protection
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="new-server-minigame">
+            <i class="fas fa-gamepad" style="color:var(--pink)"></i> Minigame Server
           </label>
         </div>
         <div id="create-status" class="hidden"></div>
@@ -635,6 +644,20 @@
           <button id="xray-modal-install-orebfuscator" class="btn-ghost full"><i class="fas fa-download"></i> Install Orebfuscator</button>
           <button id="xray-modal-remove-orebfuscator" class="btn-ghost full danger hidden"><i class="fas fa-trash"></i> Remove Orebfuscator</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minigame Plugin Modal -->
+  <div id="minigame-modal" class="modal-overlay hidden">
+    <div class="modal medium">
+      <div class="modal-header">
+        <h3><i class="fas fa-gamepad" style="color:var(--pink)"></i> Minigame Plugins</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="minigame-modal-status" style="margin-bottom:12px;"></div>
+        <div id="minigame-modal-list" style="max-height:350px;overflow-y:auto;"></div>
       </div>
     </div>
   </div>

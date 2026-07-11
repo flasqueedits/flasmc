@@ -354,7 +354,7 @@ app.get('/api/servers', (req, res) => {
 
 // Create server
 app.post('/api/servers', async (req, res) => {
-  const { id, type, version, anticheat, geyser, xray } = req.body;
+  const { id, type, version, anticheat, geyser, xray, minigame } = req.body;
   if (!id) return res.status(400).json({ error: 'Server ID required' });
 
   const serverDir = path.join(SERVERS_DIR, id);
@@ -398,6 +398,9 @@ app.post('/api/servers', async (req, res) => {
     const propsPath = path.join(serverDir, 'server.properties');
     if (!fs.existsSync(propsPath)) {
       let props = '#Minecraft server properties\nmotd=A Flasmc Minecraft Server\nserver-port=25565\ngamemode=survival\ndifficulty=easy\nmax-players=20\nonline-mode=true\npvp=true\n';
+      if (minigame) {
+        props = '#Minecraft server properties (Minigame)\nmotd=§6§l⚡ Flasmc Minigame Server\nserver-port=25565\ngamemode=adventure\ndifficulty=normal\nmax-players=50\nonline-mode=true\npvp=true\nspawn-protection=0\n';
+      }
       fs.writeFileSync(propsPath, props);
     }
 
@@ -408,6 +411,7 @@ app.post('/api/servers', async (req, res) => {
       anticheat: anticheat || false,
       geyser: geyser || false,
       xray: xray || false,
+      minigame: minigame || false,
       crashRestart: true,
       maxCrashes: 5,
       createdAt: new Date().toISOString()
@@ -425,7 +429,7 @@ app.post('/api/servers', async (req, res) => {
           const buffer = Buffer.from(await resp.arrayBuffer());
           fs.writeFileSync(path.join(pluginsDir, ac.file), buffer);
         }
-      } catch {}  // Silent fail — user can install manually
+      } catch {}
     }
 
     // Auto-install Geyser if requested
@@ -443,12 +447,34 @@ app.post('/api/servers', async (req, res) => {
       }
     }
 
+    // Auto-install minigame plugins if requested
+    if (minigame) {
+      const pluginsDir = path.join(serverDir, 'plugins');
+      if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
+      for (const mg of MINIGAME_PLUGINS) {
+        try {
+          console.log(`  [Minigame] Downloading ${mg.name}...`);
+          const resp = await fetch(mg.url);
+          if (resp.ok) {
+            const buffer = Buffer.from(await resp.arrayBuffer());
+            fs.writeFileSync(path.join(pluginsDir, mg.file), buffer);
+            console.log(`  [Minigame] Installed ${mg.file}`);
+          } else {
+            console.log(`  [Minigame] Failed to download ${mg.name} (${resp.status})`);
+          }
+        } catch (err) {
+          console.log(`  [Minigame] Error downloading ${mg.name}: ${err.message}`);
+        }
+      }
+    }
+
     // Configure Paper anti-xray if requested
     if (xray && type === 'paper') {
       configurePaperAntiXray(serverDir);
     }
 
-    res.json({ success: true, id, anticheat: anticheat || false, geyser: geyser || false, xray: xray || false });
+    const mg = minigame ? ', minigame plugins' : '';
+    res.json({ success: true, id, anticheat: anticheat || false, geyser: geyser || false, xray: xray || false, minigame: minigame || false });
   } catch (err) {
     fs.rmSync(serverDir, { recursive: true, force: true });
     res.status(500).json({ error: err.message });
@@ -877,6 +903,19 @@ const GEYSER_SOURCES = {
   }
 };
 
+const MINIGAME_PLUGINS = [
+  { name: 'BedWars1058', file: 'BedWars1058.jar', url: 'https://github.com/tommy356/BedWars1058/releases/latest/download/BedWars1058.jar' },
+  { name: 'uSkyBlock', file: 'uSkyBlock.jar', url: 'https://github.com/rlf10/uSkyBlock/releases/latest/download/uSkyBlock.jar' },
+  { name: 'Multiverse-Core', file: 'Multiverse-Core.jar', url: 'https://dev.bukkit.org/projects/multiverse-core/files/latest/download' },
+  { name: 'Multiverse-Inventories', file: 'Multiverse-Inventories.jar', url: 'https://dev.bukkit.org/projects/multiverse-inventories/files/latest/download' },
+  { name: 'EssentialsX', file: 'EssentialsX.jar', url: 'https://github.com/EssentialsX/Essentials/releases/latest/download/EssentialsX-2.21.1.jar' },
+  { name: 'PlaceholderAPI', file: 'PlaceholderAPI.jar', url: 'https://github.com/PlaceholderAPI/PlaceholderAPI/releases/latest/download/PlaceholderAPI-2.11.6.jar' },
+  { name: 'Vault', file: 'Vault.jar', url: 'https://github.com/MilkBowl/Vault/releases/latest/download/Vault.jar' },
+  { name: 'LuckPerms', file: 'LuckPerms.jar', url: 'https://download.luckperms.net/1532/bukkit/loader/LuckPerms-Bukkit-5.4.163.jar' },
+  { name: 'WorldEdit', file: 'WorldEdit.jar', url: 'https://dev.bukkit.org/projects/worldedit/files/latest/download' },
+  { name: 'ClearLag', file: 'ClearLag.jar', url: 'https://github.com/psgsdev/Clearlag/releases/latest/download/Clearlag-3.1.3.jar' },
+];
+
 app.get('/api/servers/:id/geyser', (req, res) => {
   const pluginsDir = path.join(SERVERS_DIR, req.params.id, 'plugins');
   const configPath = path.join(SERVERS_DIR, req.params.id, 'server-config.json');
@@ -1077,6 +1116,62 @@ const XRAY_SOURCES = {
     configFiles: ['config.yml']
   }
 };
+
+// ─── Minigame Plugin Manager ─────────────────────────────
+
+app.get('/api/servers/:id/minigame', (req, res) => {
+  const pluginsDir = path.join(SERVERS_DIR, req.params.id, 'plugins');
+  const configPath = path.join(SERVERS_DIR, req.params.id, 'server-config.json');
+  let config = {};
+  try { config = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch {}
+
+  const installed = [];
+  for (const mg of MINIGAME_PLUGINS) {
+    const jarPath = path.join(pluginsDir, mg.file);
+    installed.push({
+      name: mg.name,
+      file: mg.file,
+      installed: fs.existsSync(jarPath),
+      size: fs.existsSync(jarPath) ? fs.statSync(jarPath).size : 0
+    });
+  }
+  res.json({ minigame: config.minigame || false, plugins: installed });
+});
+
+app.post('/api/servers/:id/minigame/install', async (req, res) => {
+  const serverDir = path.join(SERVERS_DIR, req.params.id);
+  const pluginsDir = path.join(serverDir, 'plugins');
+  if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
+
+  const pluginName = req.body.plugin;
+  const mg = MINIGAME_PLUGINS.find(p => p.name === pluginName);
+  if (!mg) return res.status(400).json({ error: 'Plugin not found' });
+
+  const jarPath = path.join(pluginsDir, mg.file);
+  if (fs.existsSync(jarPath)) return res.json({ success: true, message: 'Already installed' });
+
+  try {
+    const resp = await fetch(mg.url);
+    if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    fs.writeFileSync(jarPath, buffer);
+    res.json({ success: true, message: `Installed ${mg.name}` });
+  } catch (err) {
+    res.json({ success: true, message: `Marked. Download failed - upload ${mg.file} manually.`, downloadFailed: true, downloadUrl: mg.url });
+  }
+});
+
+app.post('/api/servers/:id/minigame/uninstall', (req, res) => {
+  const pluginsDir = path.join(SERVERS_DIR, req.params.id, 'plugins');
+  const pluginName = req.body.plugin;
+  const mg = MINIGAME_PLUGINS.find(p => p.name === pluginName);
+  if (!mg) return res.status(400).json({ error: 'Plugin not found' });
+  const jarPath = path.join(pluginsDir, mg.file);
+  if (fs.existsSync(jarPath)) fs.rmSync(jarPath);
+  res.json({ success: true, message: `Removed ${mg.name}` });
+});
+
+// ─── X-Ray / Anti-Xray ───────────────────────────────────
 
 app.get('/api/servers/:id/xray', (req, res) => {
   const serverDir = path.join(SERVERS_DIR, req.params.id);
@@ -1401,6 +1496,19 @@ app.post('/api/ai-bot/:id', (req, res) => {
   if (!aiBot) aiBot = new FlasmcAIBot(io, runningServers, SERVERS_DIR);
   const config = aiBot.updateConfig(req.params.id, req.body);
   res.json(config);
+});
+
+// ─── Event API ─────────────────────────────────────────────────────
+
+app.get('/api/events/:id', (req, res) => {
+  if (!aiBot) aiBot = new FlasmcAIBot(io, runningServers, SERVERS_DIR);
+  res.json({ events: aiBot.getEvents(), nextEvent: aiBot.getNextEvent(req.params.id) });
+});
+
+app.post('/api/events/:id/trigger', (req, res) => {
+  if (!aiBot) aiBot = new FlasmcAIBot(io, runningServers, SERVERS_DIR);
+  const result = aiBot.triggerEvent(req.params.id, req.body.event);
+  res.json(result || { error: 'Bot not connected' });
 });
 
 // ─── Ban / Kick API ──────────────────────────────────────────────
