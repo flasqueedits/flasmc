@@ -1310,6 +1310,7 @@ async function loadDiscordStatus() {
   document.getElementById('discord-channel').value = data.consoleChannelId || '';
   document.getElementById('discord-prefix').value = data.prefix || '!';
   document.getElementById('discord-prefix-display').textContent = data.prefix || '!';
+  document.getElementById('discord-serverip').value = data.serverIp || '';
 }
 
 document.getElementById('discord-connect-btn').addEventListener('click', async () => {
@@ -1333,7 +1334,8 @@ document.getElementById('discord-save-btn').addEventListener('click', async () =
   const token = document.getElementById('discord-token').value;
   const channel = document.getElementById('discord-channel').value;
   const prefix = document.getElementById('discord-prefix').value;
-  await api('POST', '/discord/config', { token, consoleChannelId: channel, prefix });
+  const serverIp = document.getElementById('discord-serverip').value;
+  await api('POST', '/discord/config', { token, consoleChannelId: channel, prefix, serverIp });
   toast('Settings saved', 'success');
   loadDiscordStatus();
 });

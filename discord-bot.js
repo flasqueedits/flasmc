@@ -18,6 +18,7 @@ class FlasmcDiscordBot {
     this.lastStatus = {};
     this.startTime = 0;
     this.prefix = '!';
+    this.serverIp = cfg.serverIp || '';
     this.cooldowns = new Map();
     this.loadConfig();
   }
@@ -43,7 +44,8 @@ class FlasmcDiscordBot {
       consoleChannelId: this.consoleChannelId,
       statusChannelId: this.statusChannelId,
       backupsChannelId: this.backupsChannelId,
-      prefix: this.prefix
+      prefix: this.prefix,
+      serverIp: this.serverIp
     }, null, 2));
   }
 
@@ -1256,7 +1258,8 @@ class FlasmcDiscordBot {
   }
 
   async cmdServerip(ctx) {
-    await this.reply(ctx, '🌐 **Server IP:** Coming soon\nCheck the website or ask an admin.');
+    if (this.serverIp) return this.reply(ctx, `🌐 **Server IP:** \`${this.serverIp}\``);
+    await this.reply(ctx, '🌐 **Server IP:** Not configured yet.\nAn admin can set it in the web UI.');
   }
 
   async cmdRules(ctx) {
@@ -1341,6 +1344,7 @@ class FlasmcDiscordBot {
       statusChannelId: this.statusChannelId,
       backupsChannelId: this.backupsChannelId,
       prefix: this.prefix,
+      serverIp: this.serverIp,
       botUser: this.client?.user?.tag || null
     };
   }
@@ -1351,6 +1355,7 @@ class FlasmcDiscordBot {
     if (cfg.statusChannelId !== undefined) this.statusChannelId = cfg.statusChannelId;
     if (cfg.backupsChannelId !== undefined) this.backupsChannelId = cfg.backupsChannelId;
     if (cfg.prefix !== undefined) this.prefix = cfg.prefix;
+    if (cfg.serverIp !== undefined) this.serverIp = cfg.serverIp;
     this.saveConfig();
   }
 }
