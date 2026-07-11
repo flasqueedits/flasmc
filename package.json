@@ -21,9 +21,10 @@
       "main.js",
       "server.js",
       "discord-bot.js",
+      "ai-bot.js",
+      "ecosystem.config.js",
       "package.json",
-      "public/**/*",
-      "!**/node_modules/**/*"
+      "public/**/*"
     ],
     "extraMetadata": {
       "main": "main.js"
