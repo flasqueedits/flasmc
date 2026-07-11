@@ -1,0 +1,69 @@
+{
+  "name": "flasmc",
+  "version": "1.0.0",
+  "description": "Aternos-style Minecraft Server Manager — FlasMC",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "web": "node server.js",
+    "electron": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:msi": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.flasmc.app",
+    "productName": "Flasmc",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "server.js",
+      "discord-bot.js",
+      "package.json",
+      "public/**/*",
+      "!**/node_modules/**/*"
+    ],
+    "extraMetadata": {
+      "main": "main.js"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": null,
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Flasmc",
+      "license": null
+    }
+  },
+  "keywords": [
+    "minecraft",
+    "server",
+    "manager",
+    "electron"
+  ],
+  "author": "Flasmc",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "adm-zip": "^0.6.0",
+    "discord.js": "^14.26.5",
+    "express": "^5.2.1",
+    "mineflayer": "^4.37.1",
+    "multer": "^2.2.0",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
+  }
+}

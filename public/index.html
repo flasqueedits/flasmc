@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flasmc — Minecraft Server Manager</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+  <!-- Auth Gate -->
+  <div id="auth-gate">
+    <div id="auth-box">
+      <div style="text-align:right;margin-bottom:8px;">
+        <select id="lang-select" style="background:none;border:1px solid var(--border);color:var(--text-muted);font-size:11px;padding:2px 6px;border-radius:4px;cursor:pointer;outline:none;">
+          <option value="en">English</option>
+          <option value="tr">Türkçe</option>
+        </select>
+      </div>
+      <div id="auth-logo"><i class="fas fa-cube"></i> Flasmc</div>
+      <div id="auth-form-login">
+        <h3>Sign In</h3>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="auth-username" placeholder="Enter username..." spellcheck="false">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="auth-password" placeholder="Enter password...">
+        </div>
+        <div id="auth-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none;"></div>
+        <button id="auth-login-btn" class="btn-primary" style="width:100%;justify-content:center;"><i class="fas fa-sign-in-alt"></i> Sign In</button>
+        <div id="auth-setup-link" style="margin-top:12px;font-size:12px;color:var(--text-muted);text-align:center;display:none;">
+          No account? <a href="#" id="auth-show-setup" style="color:var(--accent);cursor:pointer;">Create one</a>
+        </div>
+      </div>
+      <div id="auth-form-setup" style="display:none;">
+        <h3>Create Admin Account</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">First-time setup — create your admin account.</p>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="setup-username" placeholder="admin..." spellcheck="false">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="setup-password" placeholder="Choose a strong password...">
+        </div>
+        <div class="form-group">
+          <label>Confirm Password</label>
+          <input type="password" id="setup-password-confirm" placeholder="Confirm password...">
+        </div>
+        <div id="setup-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none;"></div>
+        <button id="auth-setup-btn" class="btn-primary" style="width:100%;justify-content:center;"><i class="fas fa-rocket"></i> Create Account</button>
+        <div style="margin-top:12px;font-size:12px;color:var(--text-muted);text-align:center;">
+          Already have an account? <a href="#" id="auth-show-login" style="color:var(--accent);cursor:pointer;">Sign in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logout button (shown when authenticated) -->
+  <div id="top-bar-right" style="position:fixed;top:8px;right:8px;z-index:100;display:none;gap:6px;align-items:center;">
+    <select id="lang-select-top" style="background:var(--bg-surface);border:1px solid var(--border);color:var(--text-muted);font-size:10px;padding:2px 4px;border-radius:4px;cursor:pointer;outline:none;">
+      <option value="en">EN</option>
+      <option value="tr">TR</option>
+    </select>
+    <button id="btn-logout" class="btn-ghost" style="font-size:11px;padding:4px 8px;"><i class="fas fa-sign-out-alt"></i> Logout</button>
+  </div>
+
+  <div id="app" class="hidden">
+    <!-- Server List View -->
+    <div id="server-list-view">
+      <header id="slist-header">
+        <div id="slist-logo"><i class="fas fa-cube"></i> Flasmc</div>
+        <div id="slist-title">My Servers</div>
+        <button id="slist-create-btn" class="btn-primary"><i class="fas fa-plus"></i> Create Server</button>
+      </header>
+      <div id="slist-grid"></div>
+      <div id="slist-empty">
+        <i class="fas fa-server"></i>
+        <h3>No servers yet</h3>
+        <p>Create your first Minecraft server</p>
+        <button id="slist-empty-btn" class="btn-primary">Create Server</button>
+      </div>
+    </div>
+
+    <!-- Server Detail View -->
+    <div id="server-detail-view" class="hidden">
+      <!-- Top Bar -->
+      <header id="detail-topbar">
+        <button id="btn-back-list" class="back-btn"><i class="fas fa-arrow-left"></i></button>
+        <div id="detail-server-info">
+          <span id="detail-name"></span>
+          <span id="detail-status-dot" class="status-dot stopped"></span>
+          <span id="detail-status-text" class="status-text stopped">Stopped</span>
+        </div>
+        <div id="detail-controls">
+          <button id="detail-btn-start" class="btn-start"><i class="fas fa-play"></i> Start</button>
+          <button id="detail-btn-stop" class="btn-stop" disabled><i class="fas fa-stop"></i> Stop</button>
+          <button id="detail-btn-restart" class="btn-restart" disabled><i class="fas fa-sync"></i></button>
+        </div>
+      </header>
+
+      <!-- Tab Navigation -->
+      <nav id="tab-nav">
+        <button class="tab-btn active" data-tab="console"><i class="fas fa-terminal"></i> Console</button>
+        <button class="tab-btn" data-tab="motd"><i class="fas fa-pen-fancy"></i> MOTD</button>
+        <button class="tab-btn" data-tab="settings"><i class="fas fa-cog"></i> Settings</button>
+        <button class="tab-btn" data-tab="plugins"><i class="fas fa-plug"></i> Plugins</button>
+        <button class="tab-btn" data-tab="worlds"><i class="fas fa-globe"></i> Worlds</button>
+        <button class="tab-btn" data-tab="media"><i class="fas fa-images"></i> Media</button>
+        <button class="tab-btn" data-tab="files"><i class="fas fa-folder-tree"></i> Files</button>
+        <button class="tab-btn" data-tab="backup"><i class="fas fa-archive"></i> Backup</button>
+        <button class="tab-btn" data-tab="schedules"><i class="fas fa-clock"></i> Schedules</button>
+        <button class="tab-btn" data-tab="discord"><i class="fab fa-discord"></i> Discord</button>
+        <button class="tab-btn" data-tab="aibot"><i class="fas fa-robot"></i> AI Bot</button>
+        <button class="tab-btn" data-tab="info"><i class="fas fa-info-circle"></i> Info</button>
+      </nav>
+
+      <!-- Tab Content -->
+      <main id="tab-content">
+        <!-- Console Tab -->
+        <div class="tab-pane active" id="tab-console">
+          <div id="console-output"></div>
+          <div id="console-input-area">
+            <input type="text" id="console-input" placeholder="Enter a command..." disabled spellcheck="false">
+            <button id="btn-console-send" class="btn-primary" disabled><i class="fas fa-arrow-right"></i></button>
+            <button id="btn-console-clear" class="btn-ghost" title="Clear"><i class="fas fa-eraser"></i></button>
+          </div>
+        </div>
+
+        <!-- MOTD Tab -->
+        <div class="tab-pane" id="tab-motd">
+          <div id="motd-container">
+            <div id="motd-preview">
+              <div id="motd-header">
+                <span id="motd-username">Flasquenin</span>
+                <div id="motd-rack-icon"><i class="fas fa-server"></i></div>
+              </div>
+              <div id="motd-text">
+                <span id="motd-line1">düzenlemiş olduğu etkinliğe</span>
+                <span id="motd-line2">hoşgeldin!</span>
+              </div>
+            </div>
+            <div id="motd-controls">
+              <textarea id="motd-textarea" spellcheck="false" placeholder="Enter your MOTD... Use § for color codes (e.g. §aGreen§r)"></textarea>
+              <div id="motd-toolbar">
+                <div id="motd-toolbar-left">
+                  <button class="motd-tool-btn" data-insert="§" title="Color code prefix"><span style="font-weight:bold;font-size:16px;">§</span></button>
+                  <button class="motd-tool-btn" data-insert="☺" title="Smiley">☺</button>
+                </div>
+                <div id="motd-colors">
+                  <div class="motd-color-row">
+                    <button class="motd-color-btn" data-code="0" style="color:#aa00aa">0</button>
+                    <button class="motd-color-btn" data-code="1" style="color:#0000aa">1</button>
+                    <button class="motd-color-btn" data-code="2" style="color:#00aa00">2</button>
+                    <button class="motd-color-btn" data-code="3" style="color:#00aaaa">3</button>
+                    <button class="motd-color-btn" data-code="4" style="color:#aa0000">4</button>
+                    <button class="motd-color-btn" data-code="5" style="color:#aa00aa">5</button>
+                    <button class="motd-color-btn" data-code="6" style="color:#ffaa00">6</button>
+                    <button class="motd-color-btn" data-code="7" style="color:#aaaaaa">7</button>
+                    <button class="motd-color-btn" data-code="8" style="color:#555555">8</button>
+                    <button class="motd-color-btn" data-code="9" style="color:#5555ff">9</button>
+                    <button class="motd-color-btn" data-code="a" style="color:#55ff55">a</button>
+                    <button class="motd-color-btn" data-code="b" style="color:#55ffff">b</button>
+                    <button class="motd-color-btn" data-code="c" style="color:#ff5555">c</button>
+                    <button class="motd-color-btn" data-code="d" style="color:#ff55ff">d</button>
+                  </div>
+                  <div class="motd-color-row">
+                    <button class="motd-color-btn" data-code="e" style="color:#ffff55">e</button>
+                    <button class="motd-color-btn" data-code="f" style="color:#ffffff">f</button>
+                    <button class="motd-color-btn format" data-code="l" title="Bold"><b>L</b></button>
+                    <button class="motd-color-btn format" data-code="m" title="Strikethrough"><s>M</s></button>
+                    <button class="motd-color-btn format" data-code="n" title="Underline"><u>N</u></button>
+                    <button class="motd-color-btn format" data-code="o" title="Italic"><i>O</i></button>
+                    <button class="motd-color-btn format" data-code="k" title="Obfuscated"><span style="letter-spacing:2px;">K</span></button>
+                    <button class="motd-color-btn format" data-code="r" title="Reset">R</button>
+                  </div>
+                </div>
+                <div id="motd-toolbar-right">
+                  <button class="motd-tool-btn" id="motd-refresh" title="Reset to saved">↻</button>
+                  <button class="motd-tool-btn" id="motd-align-left" title="Align left">☰</button>
+                  <button class="motd-tool-btn" id="motd-align-center" title="Align center">☰☰</button>
+                </div>
+              </div>
+            </div>
+            <div id="motd-actions">
+              <button id="motd-save-btn" class="btn-primary"><i class="fas fa-save"></i> Save MOTD</button>
+              <span id="motd-char-count" style="font-size:11px;color:var(--text-muted);margin-left:12px;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="tab-pane" id="tab-settings">
+          <div id="settings-content">
+            <div id="settings-props"></div>
+            <div id="settings-actions">
+              <button id="settings-save-btn" class="btn-primary"><i class="fas fa-save"></i> Save</button>
+              <button id="settings-reload-btn" class="btn-ghost"><i class="fas fa-undo"></i> Reload from Server</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plugins Tab -->
+        <div class="tab-pane" id="tab-plugins">
+          <div id="plugins-toolbar">
+            <input type="file" id="plugins-file-input" accept=".jar" multiple hidden>
+            <button id="plugins-upload-btn" class="btn-ghost"><i class="fas fa-upload"></i> Upload .jar</button>
+            <button id="plugins-enable-all" class="btn-ghost"><i class="fas fa-check-circle"></i> Enable All</button>
+            <button id="plugins-disable-all" class="btn-ghost"><i class="fas fa-ban"></i> Disable All</button>
+            <div id="plugins-search-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" id="plugins-search" placeholder="Search plugins...">
+            </div>
+          </div>
+          <div id="plugins-grid"></div>
+        </div>
+
+        <!-- Worlds Tab -->
+        <div class="tab-pane" id="tab-worlds">
+          <div id="worlds-toolbar">
+            <input type="file" id="worlds-file-input" accept=".zip" hidden>
+            <button id="worlds-upload-btn" class="btn-ghost"><i class="fas fa-upload"></i> Upload World (.zip)</button>
+          </div>
+          <div id="worlds-grid"></div>
+        </div>
+
+        <!-- Media Tab -->
+        <div class="tab-pane" id="tab-media">
+          <div id="media-toolbar">
+            <input type="file" id="media-file-input" accept="image/*,video/mp4,audio/mpeg" multiple hidden>
+            <button id="media-upload-btn" class="btn-ghost"><i class="fas fa-upload"></i> Upload Media</button>
+          </div>
+          <div id="media-grid" class="media-grid-full"></div>
+        </div>
+
+        <!-- Files Tab -->
+        <div class="tab-pane" id="tab-files">
+          <div id="files-toolbar">
+            <input type="file" id="files-file-input" multiple hidden>
+            <button id="files-upload-btn" class="btn-ghost"><i class="fas fa-upload"></i> Upload</button>
+            <button id="files-new-dir" class="btn-ghost"><i class="fas fa-folder-plus"></i> New Folder</button>
+            <button id="files-new-file" class="btn-ghost"><i class="fas fa-file-circle-plus"></i> New File</button>
+            <button id="files-refresh" class="btn-ghost"><i class="fas fa-sync"></i></button>
+            <span style="flex:1;"></span>
+            <span id="files-path" style="font-size:11px;color:var(--text-muted);font-family:var(--mono);"></span>
+          </div>
+          <div id="files-container">
+            <div id="files-sidebar">
+              <div id="files-tree"></div>
+            </div>
+            <div id="files-main">
+              <div id="files-list"></div>
+              <div id="files-editor" style="display:none;flex-direction:column;height:100%;">
+                <div id="files-editor-toolbar">
+                  <span id="files-editor-path" style="font-size:11px;font-family:var(--mono);color:var(--text-muted);flex:1;"></span>
+                  <button id="files-editor-save" class="btn-primary" style="font-size:11px;padding:4px 12px;"><i class="fas fa-save"></i> Save</button>
+                  <button id="files-editor-close" class="btn-ghost" style="font-size:11px;padding:4px 12px;"><i class="fas fa-times"></i></button>
+                </div>
+                <textarea id="files-editor-text" spellcheck="false"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backup Tab -->
+        <div class="tab-pane" id="tab-backup">
+          <div id="backup-content">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+              <button id="backup-create-btn" class="btn-primary"><i class="fas fa-plus"></i> Create Backup</button>
+              <span style="flex:1;"></span>
+              <span style="font-size:11px;color:var(--text-muted);">Retention:</span>
+              <input type="number" id="backup-retention" value="0" min="0" max="100" style="width:60px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:12px;outline:none;">
+              <span style="font-size:11px;color:var(--text-muted);">(0 = keep all)</span>
+              <button id="backup-retention-save" class="btn-ghost" style="font-size:11px;">Save</button>
+              <button id="backup-refresh" class="btn-ghost"><i class="fas fa-sync"></i></button>
+            </div>
+            <div id="backup-list"></div>
+          </div>
+        </div>
+
+        <!-- Schedules Tab -->
+        <div class="tab-pane" id="tab-schedules">
+          <div id="schedules-content">
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+              <select id="schedule-action" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:13px;outline:none;">
+                <option value="start_server">Start Server</option>
+                <option value="stop_server">Stop Server</option>
+                <option value="restart_server">Restart Server</option>
+                <option value="create_backup">Create Backup</option>
+              </select>
+              <input type="datetime-local" id="schedule-datetime" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:13px;outline:none;color-scheme:dark;">
+              <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);">
+                <span>Repeat every</span>
+                <input type="number" id="schedule-interval" value="" min="0" placeholder="-" style="width:50px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:12px;outline:none;text-align:center;">
+                <span>min (0 = once)</span>
+              </div>
+              <input type="text" id="schedule-label" placeholder="Label..." spellcheck="false" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:13px;outline:none;flex:1;min-width:120px;">
+              <button id="schedule-add-btn" class="btn-primary"><i class="fas fa-plus"></i> Add Schedule</button>
+            </div>
+            <div id="schedules-list"></div>
+          </div>
+        </div>
+
+        <!-- Discord Tab -->
+        <div class="tab-pane" id="tab-discord">
+          <div id="discord-content">
+            <div id="discord-status-bar"></div>
+            <div class="form-group">
+              <label>Bot Token</label>
+              <input type="password" id="discord-token" placeholder="Enter your Discord bot token...">
+            </div>
+            <div class="form-group">
+              <label>Console Channel ID</label>
+              <input type="text" id="discord-channel" placeholder="Channel ID for console logs...">
+            </div>
+            <div class="form-group">
+              <label>Bot Prefix</label>
+              <input type="text" id="discord-prefix" value="!" placeholder="!" style="max-width:80px;">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+              <button id="discord-connect-btn" class="btn-primary"><i class="fas fa-plug"></i> Connect</button>
+              <button id="discord-disconnect-btn" class="btn-danger hidden"><i class="fas fa-plug"></i> Disconnect</button>
+              <button id="discord-save-btn" class="btn-ghost"><i class="fas fa-save"></i> Save</button>
+            </div>
+            <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.8;">
+              <strong>Bot Commands:</strong> (prefix: <code id="discord-prefix-display">!</code>)<br>
+              <code>status</code> <code>start</code> <code>stop</code> <code>restart</code> <code>create</code> <code>delete</code> <code>servers</code> <code>info</code><br>
+              <code>console</code> <code>say</code> <code>kick</code> <code>ban</code> <code>unban</code> <code>whitelist</code> <code>op</code> <code>deop</code><br>
+              <code>backup</code> <code>plugins</code> <code>worlds</code> <code>properties</code> <code>tps</code> <code>memory</code><br>
+              <code>lock</code> <code>unlock</code> <code>setup</code> <code>prefix</code> <code>role</code> <code>language</code> <code>ping</code> <code>uptime</code> <code>invite</code> <code>help</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Bot Tab -->
+        <div class="tab-pane" id="tab-aibot">
+          <div id="aibot-content">
+            <div id="aibot-status-bar"></div>
+            <div class="form-group">
+              <label data-i18n="aibot.enable">Enable AI Bot</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="aibot-enabled">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="form-group">
+              <label data-i18n="aibot.name">Bot Name</label>
+              <input type="text" id="aibot-name" value="Bot" placeholder="Bot...">
+            </div>
+            <div class="form-group">
+              <label data-i18n="aibot.language">Language</label>
+              <select id="aibot-language">
+                <option value="en">English</option>
+                <option value="tr">Türkçe</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Host</label>
+              <input type="text" id="aibot-host" value="localhost" placeholder="localhost">
+            </div>
+            <div class="form-group">
+              <label>Port</label>
+              <input type="number" id="aibot-port" value="25565" placeholder="25565" min="1" max="65535">
+            </div>
+            <div class="form-group">
+              <label>Minecraft Version <span style="font-size:11px;color:var(--text-muted);">(leave empty for auto)</span></label>
+              <input type="text" id="aibot-version" placeholder="1.20.4, 1.19.2, etc.">
+            </div>
+            <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+              <label><i class="fas fa-brain"></i> Groq AI API Key</label>
+              <input type="password" id="aibot-groq-key" placeholder="gsk_... (leave empty for keyword-only mode)">
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                Get a free API key at <a href="https://console.groq.com" target="_blank" style="color:var(--accent);">console.groq.com</a>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Groq Model</label>
+              <select id="aibot-groq-model">
+                <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Fast, best)</option>
+                <option value="llama-3.1-8b-instant">Llama 3.1 8B (Lightning fast)</option>
+                <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                <option value="gemma2-9b-it">Gemma 2 9B</option>
+              </select>
+            </div>
+            <div id="aibot-preview" style="margin-top:12px;padding:10px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border);font-size:13px;line-height:1.6;">
+              <strong data-i18n="aibot.preview">Chat Preview:</strong><br>
+              <span style="color:var(--text-muted);" id="aibot-preview-text">
+                &lt;Player&gt; Hello!<br>
+                <span style="color:aqua;">&lt;Bot&gt; Hi there!</span>
+              </span>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:8px;">
+              <button id="aibot-save-btn" class="btn-primary"><i class="fas fa-save"></i> <span data-i18n="common.save">Save</span></button>
+              <button id="aibot-refresh-btn" class="btn-ghost"><i class="fas fa-sync"></i> <span data-i18n="common.refresh">Refresh</span></button>
+            </div>
+            <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.8;">
+              <strong data-i18n="aibot.commands">AI Bot responds to:</strong><br>
+              <span data-i18n="aibot.commands.list">hello, status, time, joke, thanks, bye, players, help, how are you</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info Tab -->
+        <div class="tab-pane" id="tab-info">
+          <div id="info-thumb" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);">
+            <div style="width:64px;height:64px;border-radius:8px;overflow:hidden;background:var(--bg-surface);flex-shrink:0;position:relative;">
+              <img id="info-thumb-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" onerror="this.style.display='none'">
+              <div id="info-thumb-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:24px;"><i class="fas fa-cube"></i></div>
+            </div>
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:15px;" id="detail-name-thumb"></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Click to change thumbnail</div>
+            </div>
+            <input type="file" id="info-thumb-input" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+            <button id="info-thumb-upload" class="btn-ghost" style="font-size:11px;"><i class="fas fa-camera"></i> Change</button>
+            <button id="info-thumb-remove" class="btn-ghost danger" style="font-size:11px;"><i class="fas fa-trash"></i> Remove</button>
+          </div>
+          <div id="info-grid">
+            <div class="info-card">
+              <div class="info-card-label">Server Type</div>
+              <div class="info-card-value" id="info-type">-</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Version</div>
+              <div class="info-card-value" id="info-version">-</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Port</div>
+              <div class="info-card-value">25565</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Bedrock Port</div>
+              <div class="info-card-value" id="info-bedrock-port">-</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">RAM</div>
+              <div class="info-card-value">
+                <select id="info-ram-min"><option>1G</option><option selected>2G</option><option>4G</option><option>6G</option><option>8G</option></select>
+                <span class="sep">→</span>
+                <select id="info-ram-max"><option>1G</option><option>2G</option><option selected>4G</option><option>6G</option><option>8G</option><option>16G</option><option>32G</option></select>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">TPS</div>
+              <div class="info-card-value" id="info-tps">-</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Players</div>
+              <div class="info-card-value" id="info-players">0</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Memory</div>
+              <div class="info-card-value" id="info-memory">-</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Anti-Cheat</div>
+              <div class="info-card-value" id="info-anticheat"><span class="badge-off">Off</span></div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Bedrock</div>
+              <div class="info-card-value" id="info-geyser"><span class="badge-off">Off</span></div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">X-Ray Protection</div>
+              <div class="info-card-value" id="info-xray"><span class="badge-off">Off</span></div>
+            </div>
+            <div class="info-card span-2">
+              <div class="info-card-label">Server ID</div>
+              <div class="info-card-value" id="info-serverid" style="font-family:var(--mono);font-size:11px;">-</div>
+            </div>
+            <div class="info-card span-2">
+              <div class="info-card-label">Crash Auto-Restart</div>
+              <div class="info-card-value" id="info-crash-restart" style="display:flex;align-items:center;gap:8px;">
+                <label class="toggle-switch" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+                  <input type="checkbox" id="crash-restart-toggle" checked>
+                  <span class="toggle-slider"></span>
+                  <span id="crash-restart-label">Enabled</span>
+                </label>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">Max:</span>
+                <input type="number" id="crash-restart-max" value="5" min="1" max="20" style="width:50px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:11px;outline:none;">
+              </div>
+            </div>
+          </div>
+          <div id="info-actions" style="margin-top:20px;">
+            <button id="info-delete-btn" class="btn-danger"><i class="fas fa-trash"></i> Delete Server</button>
+          </div>
+        </div>
+      </main>
+
+      <!-- Ban/Kick and Anti-Cheat buttons in bottom bar -->
+      <div id="detail-bottombar">
+        <button id="bottombar-ban" class="btn-ghost"><i class="fas fa-gavel"></i> Ban / Kick</button>
+        <button id="bottombar-whitelist" class="btn-ghost"><i class="fas fa-list"></i> Whitelist</button>
+        <button id="bottombar-ops" class="btn-ghost"><i class="fas fa-star"></i> OPs</button>
+        <button id="bottombar-anticheat" class="btn-ghost"><i class="fas fa-shield-halved"></i> Anti-Cheat</button>
+        <button id="bottombar-geyser" class="btn-ghost"><i class="fas fa-mobile-screen"></i> Bedrock</button>
+        <button id="bottombar-xray" class="btn-ghost"><i class="fas fa-eye-slash"></i> X-Ray</button>
+        <span style="flex:1;"></span>
+        <span id="bottombar-stats" style="font-size:11px;color:var(--text-muted);"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="create-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Create Server</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Server Name</label>
+          <input type="text" id="new-server-name" placeholder="my-awesome-server" spellcheck="false">
+        </div>
+        <div class="form-group">
+          <label>Server Type</label>
+          <select id="new-server-type">
+            <option value="paper">Paper (Recommended)</option>
+            <option value="vanilla">Vanilla</option>
+            <option value="spigot">Spigot</option>
+            <option value="bedrock">Bedrock Edition</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Version</label>
+          <select id="new-server-version"><option>Loading...</option></select>
+        </div>
+        <div class="form-row">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="new-server-anticheat" checked>
+            <i class="fas fa-shield-halved" style="color:var(--green)"></i> Anti-Cheat
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="new-server-geyser" checked>
+            <i class="fas fa-mobile-screen" style="color:var(--cyan)"></i> Bedrock Support
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="new-server-xray" checked>
+            <i class="fas fa-eye-slash" style="color:var(--yellow)"></i> X-Ray Protection
+          </label>
+        </div>
+        <div id="create-status" class="hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-modal-cancel" class="btn-ghost">Cancel</button>
+        <button id="btn-modal-create" class="btn-primary"><i class="fas fa-rocket"></i> Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ban/Kick Modal -->
+  <div id="ban-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3><i class="fas fa-gavel"></i> Ban / Kick Players</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="ban-player-input" placeholder="Player name..." style="flex:1;">
+          <button id="btn-kick-player" class="btn-warning">Kick</button>
+          <button id="btn-ban-player" class="btn-danger">Ban</button>
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <input type="text" id="ban-reason-input" placeholder="Reason...">
+        </div>
+        <hr style="border-color:var(--border);margin:16px 0;">
+        <h4 style="font-size:13px;margin-bottom:8px;">Banned Players</h4>
+        <div id="banned-players-list" style="max-height:200px;overflow-y:auto;"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <input type="text" id="unban-player-input" placeholder="Player to unban..." style="flex:1;">
+          <button id="btn-unban-player" class="btn-ghost">Unban</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-ban-close" class="btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Anti-Cheat Modal -->
+  <div id="anticheat-modal" class="modal-overlay hidden">
+    <div class="modal small">
+      <div class="modal-header">
+        <h3><i class="fas fa-shield-halved"></i> Anti-Cheat</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="ac-modal-status"></div>
+        <div id="ac-modal-info" style="font-size:12px;color:var(--text-muted);margin:12px 0;"></div>
+        <button id="ac-modal-install" class="btn-primary full"><i class="fas fa-download"></i> Install GrimAC</button>
+        <button id="ac-modal-remove" class="btn-danger full hidden"><i class="fas fa-trash"></i> Remove Anti-Cheat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Geyser Modal -->
+  <div id="geyser-modal" class="modal-overlay hidden">
+    <div class="modal small">
+      <div class="modal-header">
+        <h3><i class="fas fa-mobile-screen"></i> Bedrock Support</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="geyser-modal-status"></div>
+        <div id="geyser-modal-info" style="font-size:12px;color:var(--text-muted);margin:12px 0;"></div>
+        <div id="geyser-modal-port" style="font-size:12px;margin:8px 0;display:none;">
+          Bedrock Port: <strong id="geyser-port-value">19132</strong> (UDP)
+        </div>
+        <button id="geyser-modal-install" class="btn-primary full"><i class="fas fa-download"></i> Install Geyser + Floodgate</button>
+        <button id="geyser-modal-remove" class="btn-danger full hidden"><i class="fas fa-trash"></i> Remove Bedrock Support</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- X-Ray Modal -->
+  <div id="xray-modal" class="modal-overlay hidden">
+    <div class="modal small">
+      <div class="modal-header">
+        <h3><i class="fas fa-eye-slash"></i> X-Ray Protection</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="xray-modal-status"></div>
+        <div id="xray-modal-info" style="font-size:12px;color:var(--text-muted);margin:12px 0;"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button id="xray-modal-enable" class="btn-primary full"><i class="fas fa-shield"></i> Enable Paper Anti-Xray</button>
+          <button id="xray-modal-disable" class="btn-danger full hidden"><i class="fas fa-times"></i> Disable X-Ray Protection</button>
+          <hr style="border-color:var(--border);margin:8px 0;">
+          <div style="font-size:11px;color:var(--text-muted);">Advanced: Orebfuscator plugin (more features)</div>
+          <button id="xray-modal-install-orebfuscator" class="btn-ghost full"><i class="fas fa-download"></i> Install Orebfuscator</button>
+          <button id="xray-modal-remove-orebfuscator" class="btn-ghost full danger hidden"><i class="fas fa-trash"></i> Remove Orebfuscator</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Whitelist Modal -->
+  <div id="whitelist-modal" class="modal-overlay hidden">
+    <div class="modal medium">
+      <div class="modal-header">
+        <h3><i class="fas fa-list"></i> Whitelist</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="whitelist-input" placeholder="Player name..." spellcheck="false" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:13px;outline:none;">
+          <button id="whitelist-add-btn" class="btn-primary"><i class="fas fa-plus"></i> Add</button>
+        </div>
+        <div id="whitelist-list" style="max-height:300px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPs Modal -->
+  <div id="ops-modal" class="modal-overlay hidden">
+    <div class="modal medium">
+      <div class="modal-header">
+        <h3><i class="fas fa-star"></i> Operators (OPs)</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="ops-input" placeholder="Player name..." spellcheck="false" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:13px;outline:none;">
+          <select id="ops-level" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text);font-size:13px;outline:none;">
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+            <option value="4" selected>Level 4</option>
+          </select>
+          <button id="ops-add-btn" class="btn-primary"><i class="fas fa-plus"></i> Add</button>
+        </div>
+        <div id="ops-list" style="max-height:300px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Media Preview Modal -->
+  <div id="media-preview-modal" class="modal-overlay hidden">
+    <div class="modal" style="width:auto;max-width:90vw;min-width:auto;background:transparent;border:none;box-shadow:none;">
+      <div class="modal-header" style="background:var(--bg-card);border-radius:12px 12px 0 0;">
+        <span id="media-preview-name" style="font-size:13px;color:var(--text-secondary);"></span>
+        <button id="media-preview-close-btn" class="modal-close-btn">&times;</button>
+      </div>
+      <div style="background:#000;border-radius:0 0 12px 12px;padding:20px;display:flex;align-items:center;justify-content:center;max-height:75vh;">
+        <img id="media-preview-img" style="max-width:100%;max-height:70vh;object-fit:contain;display:none;">
+        <video id="media-preview-video" style="max-width:100%;max-height:70vh;object-fit:contain;display:none;" controls></video>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <div id="loading-overlay" class="hidden"><div class="spinner"></div></div>
+
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
