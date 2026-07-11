@@ -18,6 +18,7 @@ class FlasmcDiscordBot {
     this.lastStatus = {};
     this.startTime = 0;
     this.prefix = '!';
+    this.cooldowns = new Map();
     this.loadConfig();
   }
 
@@ -94,7 +95,18 @@ class FlasmcDiscordBot {
       new SlashCommandBuilder().setName('language').setDescription('Send language selection menu'),
       new SlashCommandBuilder().setName('event').setDescription('Trigger an admin abuse event').addStringOption(o => o.setName('server').setDescription('Server name').setRequired(true)).addStringOption(o => o.setName('type').setDescription('Event type').setRequired(false)),
       new SlashCommandBuilder().setName('events').setDescription('List available events and next event time'),
-      new SlashCommandBuilder().setName('help').setDescription('Show all commands').addStringOption(o => o.setName('category').setDescription('Command category').setRequired(false).addChoices({ name: 'Server', value: 'server' }, { name: 'Player', value: 'player' }, { name: 'Management', value: 'management' }, { name: 'Bot', value: 'bot' })),
+      new SlashCommandBuilder().setName('skin').setDescription('Show a player\'s Minecraft skin').addStringOption(o => o.setName('player').setDescription('Player name').setRequired(true)),
+      new SlashCommandBuilder().setName('uuid').setDescription('Get a player\'s UUID').addStringOption(o => o.setName('player').setDescription('Player name').setRequired(true)),
+      new SlashCommandBuilder().setName('mcstatus').setDescription('Check if a Minecraft server is online').addStringOption(o => o.setName('ip').setDescription('Server IP:port').setRequired(true)),
+      new SlashCommandBuilder().setName('head').setDescription('Get a player\'s head URL').addStringOption(o => o.setName('player').setDescription('Player name').setRequired(true)),
+      new SlashCommandBuilder().setName('coinflip').setDescription('Flip a coin'),
+      new SlashCommandBuilder().setName('dice').setDescription('Roll a dice'),
+      new SlashCommandBuilder().setName('8ball').setDescription('Ask the magic 8-ball a question').addStringOption(o => o.setName('question').setDescription('Your question').setRequired(true)),
+      new SlashCommandBuilder().setName('serverip').setDescription('Show the Minecraft server IP'),
+      new SlashCommandBuilder().setName('rules').setDescription('Show server rules'),
+      new SlashCommandBuilder().setName('vote').setDescription('Vote for the server'),
+      new SlashCommandBuilder().setName('website').setDescription('Server website link'),
+      new SlashCommandBuilder().setName('help').setDescription('Show all commands').addStringOption(o => o.setName('category').setDescription('Command category').setRequired(false).addChoices({ name: 'Server', value: 'server' }, { name: 'Player', value: 'player' }, { name: 'Management', value: 'management' }, { name: 'Fun', value: 'fun' }, { name: 'Bot', value: 'bot' })),
     ];
   }
 
@@ -157,6 +169,7 @@ class FlasmcDiscordBot {
     const cmd = args[0].toLowerCase();
     const sid = args[1];
     const rest = args.slice(2).join(' ');
+    if (this.checkCooldown(msg)) return;
 
     const handlers = {
       status: () => this.cmdStatus(msg, sid),
@@ -205,6 +218,17 @@ class FlasmcDiscordBot {
       language: () => this.cmdLanguage(msg),
       event: () => this.cmdEvent(msg, sid, args[2]),
       events: () => this.cmdEvents(msg, sid),
+      skin: () => this.cmdSkin(msg, args[1]),
+      uuid: () => this.cmdUuid(msg, args[1]),
+      mcstatus: () => this.cmdMcstatus(msg, args[1]),
+      head: () => this.cmdHead(msg, args[1]),
+      coinflip: () => this.cmdCoinflip(msg),
+      dice: () => this.cmdDice(msg),
+      '8ball': () => this.cmd8ball(msg, rest),
+      serverip: () => this.cmdServerip(msg),
+      rules: () => this.cmdRules(msg),
+      vote: () => this.cmdVote(msg),
+      website: () => this.cmdWebsite(msg),
     };
     if (handlers[cmd]) await handlers[cmd]();
     else if (cmd) await msg.reply(`Unknown command \`${cmd}\`. Use \`!help\``);
@@ -254,6 +278,7 @@ class FlasmcDiscordBot {
     }
 
     if (!interaction.isChatInputCommand()) return;
+    if (this.checkCooldown(interaction)) return;
     const cmd = interaction.commandName;
     const sid = interaction.options.getString('server');
     const get = (n) => interaction.options.getString(n);
@@ -304,12 +329,38 @@ class FlasmcDiscordBot {
       language: () => this.cmdLanguage(interaction),
       event: () => this.cmdEvent(interaction, sid, get('type')),
       events: () => this.cmdEvents(interaction, sid),
+      skin: () => this.cmdSkin(interaction, get('player')),
+      uuid: () => this.cmdUuid(interaction, get('player')),
+      mcstatus: () => this.cmdMcstatus(interaction, get('ip')),
+      head: () => this.cmdHead(interaction, get('player')),
+      coinflip: () => this.cmdCoinflip(interaction),
+      dice: () => this.cmdDice(interaction),
+      '8ball': () => this.cmd8ball(interaction, get('question')),
+      serverip: () => this.cmdServerip(interaction),
+      rules: () => this.cmdRules(interaction),
+      vote: () => this.cmdVote(interaction),
+      website: () => this.cmdWebsite(interaction),
     };
     if (handlers[cmd]) await handlers[cmd]();
     else await interaction.reply({ content: '❌ Unknown command', ephemeral: true });
   }
 
   // ─── Helper ────────────────────────────────────────────────
+
+  checkCooldown(ctx) {
+    const userId = ctx.author?.id || ctx.user?.id;
+    if (!userId) return false;
+    const now = Date.now();
+    const last = this.cooldowns.get(userId) || 0;
+    if (now - last < 10000) {
+      const secs = Math.ceil((10000 - (now - last)) / 1000);
+      if (ctx.reply) ctx.reply({ content: `⏳ Please wait **${secs}s** between commands`, ephemeral: true }).catch(()=>{});
+      else ctx.channel?.send(`⏳ Please wait **${secs}s** between commands`).catch(()=>{});
+      return true;
+    }
+    this.cooldowns.set(userId, now);
+    return false;
+  }
 
   reply(ctx, content) {
     if (ctx.reply) return ctx.reply(content);
@@ -1137,6 +1188,95 @@ class FlasmcDiscordBot {
     ];
   }
 
+  async cmdSkin(ctx, player) {
+    if (!player) return this.reply(ctx, '❌ Usage: `!skin <player>`');
+    const url = `https://minotar.net/body/${player}/300.png`;
+    const embed = { color: 0x4caf7d, title: `🎨 ${player}'s Skin`, image: { url }, footer: { text: 'Powered by Minotar' } };
+    await this.reply(ctx, { embeds: [embed] });
+  }
+
+  async cmdUuid(ctx, player) {
+    if (!player) return this.reply(ctx, '❌ Usage: `!uuid <player>`');
+    try {
+      const resp = await fetch(`https://api.mojang.com/users/profiles/minecraft/${player}`);
+      if (!resp.ok) return this.reply(ctx, '❌ Player not found');
+      const data = await resp.json();
+      await this.reply(ctx, `🔗 **${data.name}** — UUID: \`${data.id}\``);
+    } catch { this.reply(ctx, '❌ API error'); }
+  }
+
+  async cmdMcstatus(ctx, ip) {
+    if (!ip) return this.reply(ctx, '❌ Usage: `!mcstatus <ip:port>`');
+    try {
+      const resp = await fetch(`https://api.mcsrvstat.us/3/${ip}`);
+      const data = await resp.json();
+      if (!data.online) return this.reply(ctx, `🔴 **${ip}** is offline`);
+      const embed = {
+        color: 0x4caf7d, title: `🟢 ${ip}`,
+        fields: [
+          { name: 'Players', value: `${data.players?.online || 0}/${data.players?.max || 0}`, inline: true },
+          { name: 'Version', value: data.version || '?', inline: true },
+          { name: 'MOTD', value: data.motd?.clean?.join('\n') || '?', inline: false }
+        ]
+      };
+      await this.reply(ctx, { embeds: [embed] });
+    } catch { this.reply(ctx, '❌ Failed to check server'); }
+  }
+
+  async cmdHead(ctx, player) {
+    if (!player) return this.reply(ctx, '❌ Usage: `!head <player>`');
+    const url = `https://minotar.net/avatar/${player}/200.png`;
+    const embed = { color: 0xff6b35, title: `🧑 ${player}'s Head`, image: { url }, footer: { text: 'Powered by Minotar' } };
+    await this.reply(ctx, { embeds: [embed] });
+  }
+
+  async cmdCoinflip(ctx) {
+    const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
+    const emoji = result === 'Heads' ? '🪙' : '🪙';
+    await this.reply(ctx, `${emoji} **${result}**`);
+  }
+
+  async cmdDice(ctx) {
+    const result = Math.floor(Math.random() * 6) + 1;
+    const faces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+    await this.reply(ctx, `🎲 **${result}** ${faces[result - 1]}`);
+  }
+
+  async cmd8ball(ctx, question) {
+    if (!question) return this.reply(ctx, '❌ Usage: `!8ball <question>`');
+    const answers = [
+      '🎱 It is certain.', '🎱 It is decidedly so.', '🎱 Without a doubt.', '🎱 Yes definitely.',
+      '🎱 You may rely on it.', '🎱 As I see it, yes.', '🎱 Most likely.', '🎱 Outlook good.',
+      '🎱 Yes.', '🎱 Signs point to yes.', '🎱 Reply hazy, try again.', '🎱 Ask again later.',
+      '🎱 Better not tell you now.', '🎱 Cannot predict now.', '🎱 Concentrate and ask again.',
+      '🎱 Don\'t count on it.', '🎱 My reply is no.', '🎱 My sources say no.', '🎱 Outlook not so good.', '🎱 Very doubtful.'
+    ];
+    const answer = answers[Math.floor(Math.random() * answers.length)];
+    await this.reply(ctx, `❓ **${question}**\n${answer}`);
+  }
+
+  async cmdServerip(ctx) {
+    await this.reply(ctx, '🌐 **Server IP:** Coming soon\nCheck the website or ask an admin.');
+  }
+
+  async cmdRules(ctx) {
+    const embed = {
+      color: 0x6c63ff,
+      title: '📜 Server Rules',
+      description: '1. **Be respectful** — No toxicity, harassment, or hate speech\n2. **No griefing** — Respect others\' builds\n3. **No hacking** — No x-ray, fly, or unfair advantages\n4. **No spam** — Keep chat clean\n5. **Have fun!** — That\'s the whole point 🎉',
+      footer: { text: 'Breaking rules may result in a ban' }
+    };
+    await this.reply(ctx, { embeds: [embed] });
+  }
+
+  async cmdVote(ctx) {
+    await this.reply(ctx, '🗳️ **Vote for the server!**\nVote links coming soon. Stay tuned!');
+  }
+
+  async cmdWebsite(ctx) {
+    await this.reply(ctx, '🌍 **Website:** Coming soon!');
+  }
+
   async cmdHelp(ctx, category) {
     const full = `**📋 Flasmc Bot — All Commands**\n\n` +
       `**Server:**\n` +
@@ -1146,15 +1286,18 @@ class FlasmcDiscordBot {
       `**Management:**\n` +
       `\`/console\` \`/gamemode\` \`/difficulty\` \`/time\` \`/weather\` \`/tps\` \`/memory\` \`/backup\` \`/backup-delete\`\n` +
       `\`/plugins\` \`/plugin\` \`/worlds\` \`/schedules\`\n\n` +
+      `**Fun:**\n` +
+      `\`/skin\` \`/uuid\` \`/mcstatus\` \`/head\` \`/coinflip\` \`/dice\` \`/8ball\` \`/serverip\` \`/rules\` \`/vote\` \`/website\`\n\n` +
       `**Bot:**\n` +
-      `\`/ping\` \`/uptime\` \`/about\` \`/invite\` \`/setup\` \`/lock\` \`/unlock\` \`/prefix\` \`/role\` \`/language\` \`/event\` \`/events\` \`/help\`\n\n` +
-      `Prefix (\`${this.prefix}\`) commands also work. Use \`${this.prefix}prefix <new>\` to change.`;
+      `\`/ping\` \`/uptime\` \`/about\` \`/invite\` \`/setup\` \`/lock\` \`/unlock\` \`/prefix\` \`/role\` \`/language\` \`/event\` \`/events\` \`/deploy\` \`/help\`\n\n` +
+      `Prefix (\`${this.prefix}\`) commands also work. Use \`${this.prefix}prefix <new>\` to change.\nCooldown: **10 seconds** between commands for everyone.`;
 
     const byCategory = {
       server: '**📋 Server Commands**\n`status` — Check server status\n`start` — Start server\n`stop` — Stop server\n`restart` — Restart server\n`create` — Create new server\n`delete` — Delete server\n`servers` — List all servers\n`info` — Detailed server info\n`motd` — Get/set MOTD\n`properties` — List properties\n`prop-set` — Set property\n`say` — Broadcast message',
       player: '**📋 Player Commands**\n`list` — List online players\n`kick` — Kick a player\n`ban` — Ban a player\n`unban` — Unban a player\n`whitelist` — Manage whitelist\n`op` — Add operator\n`deop` — Remove operator',
       management: '**📋 Management Commands**\n`console` — Run server command\n`gamemode` — Set gamemode\n`difficulty` — Set difficulty\n`time` — Set time\n`weather` — Set weather\n`tps` — Show TPS\n`memory` — Memory usage\n`backup` — Create/list backups\n`backup-delete` — Delete backup\n`plugins` — List plugins\n`plugin` — Enable/disable plugin\n`worlds` — List worlds\n`schedules` — List schedules\n`console` — Execute command',
-      bot: '**📋 Bot Commands**\n`ping` — Check latency\n`uptime` — Bot uptime\n`about` — Bot info\n`invite` — Invite link\n`setup` — Auto-create channels\n`lock` — Lock a channel\n`unlock` — Unlock a channel\n`prefix` — Change bot prefix\n`role` — Role selection panel\n`language` — Language selection menu\n`event` — Trigger admin abuse event\n`events` — List available events\n`help` — This message'
+      fun: '**🎮 Fun Commands (No cooldown bypass)**\n`skin` — Show player skin\n`uuid` — Get player UUID\n`mcstatus` — Check Minecraft server\n`head` — Get player head\n`coinflip` — Flip a coin\n`dice` — Roll a dice\n`8ball` — Ask 8-ball\n`serverip` — Server IP\n`rules` — Server rules\n`vote` — Vote link\n`website` — Website link',
+      bot: '**📋 Bot Commands**\n`ping` — Check latency\n`uptime` — Bot uptime\n`about` — Bot info\n`invite` — Invite link\n`setup` — Auto-create channels\n`lock` — Lock a channel\n`unlock` — Unlock a channel\n`prefix` — Change bot prefix\n`role` — Role selection panel\n`language` — Language selection menu\n`event` — Trigger admin abuse event\n`events` — List available events\n`deploy` — Re-register slash cmds\n`help` — This message'
     };
     await this.reply(ctx, byCategory[category] || full);
   }

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "web": "node server.js",
+    "discord": "node discord-app.js",
     "electron": "electron .",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
@@ -21,8 +22,10 @@
       "main.js",
       "server.js",
       "discord-bot.js",
+      "discord-app.js",
       "ai-bot.js",
       "ecosystem.config.js",
+      "setup.bat",
       "package.json",
       "public/**/*"
     ],
